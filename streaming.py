@@ -7,11 +7,31 @@ from past.builtins import unicode
 
 import apache_beam as beam
 import apache_beam.transforms.window as window
-from apache_beam.examples.wordcount_with_metrics import WordExtractingDoFn
+from apache_beam.metrics import Metrics
 from apache_beam.options.pipeline_options import PipelineOptions
 from apache_beam.options.pipeline_options import SetupOptions
 from apache_beam.options.pipeline_options import StandardOptions
 
+class WordExtractingDoFn(beam.DoFn):
+  """Parse each line of input text into words."""
+  def __init__(self):
+    self.empty_line_counter = Metrics.counter('main', 'empty_lines')
+    self.word_length_counter = Metrics.counter('main', 'word_lengths')
+    self.word_counter = Metrics.counter('main', 'total_words')
+    self.word_lengths_dist = Metrics.distribution('main', 'word_len_dist')
+
+  def process(self, element):
+    text_line = element.properties.get('content', '')
+    if not text_line:
+      self.empty_line_counter.inc()
+      return None
+
+    words = re.findall(r'[A-Za-z\']+', text_line)
+    for w in words:
+      self.word_length_counter.inc(len(w))
+      self.word_lengths_dist.update(len(w))
+      self.word_counter.inc()
+    return words
 
 def run(argv=None, save_main_session=True):
   """Build and run the pipeline."""
@@ -22,12 +42,12 @@ def run(argv=None, save_main_session=True):
       help=(
           'Output PubSub topic of the form '
           '"projects/<PROJECT>/topics/<TOPIC>".'))
-  group.add_argument(
-      '--input_subscription',
+  parser.add_argument(
+      '--input_topic',
       required=True,
       help=(
           'Input PubSub subscription of the form '
-          '"projects/<PROJECT>/subscriptions/<SUBSCRIPTION>."'))
+          '"projects/<PROJECT>/topics/<TOPIC>."'))
   known_args, pipeline_args = parser.parse_known_args(argv)
 
   pipeline_options = PipelineOptions(pipeline_args)
@@ -38,7 +58,7 @@ def run(argv=None, save_main_session=True):
 
     messages = (
         p
-        | beam.io.ReadFromPubSub(subscription=known_args.input_subscription).
+        | beam.io.ReadFromPubSub(topic=known_args.input_topic).
         with_output_types(bytes))
 
     lines = messages | 'decode' >> beam.Map(lambda x: x.decode('utf-8'))

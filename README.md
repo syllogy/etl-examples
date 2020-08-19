@@ -56,12 +56,16 @@ pip install poetry
 
 poetry install
 
+export INPUT=input <-- example
+
+export OUTPUT=output <-- example
+
 poetry run python streaming.py  \
   --region $REGION \
   --runner DataflowRunner \
   --project $PROJECT \
   --temp_location gs://$BUCKET/tmp/ \
-  --input_topic "projects/${PROJECT}/topics/YOUR_INPUT_TOPIC" \
-  --output_topic "projects/${PROJECT}/topics/YOUR_OUTPUT_TOPIC" \
+  --input_topic "projects/${PROJECT}/topics/${INPUT}" \
+  --output_topic "projects/${PROJECT}/topics/${OUTPUT}" \
   --streaming
 ```
