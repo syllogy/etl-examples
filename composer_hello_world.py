@@ -9,4 +9,5 @@ with models.DAG(
 
    goodbye_bash = bash_operator.BashOperator(
        task_id='hello_world',
-       bash_command='echo “Hello World”')
+       bash_command='ls $DAGS_FOLDER')
+
